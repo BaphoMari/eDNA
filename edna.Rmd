@@ -221,7 +221,7 @@ edna_info3 <- inner_join(edna_info1, edna_info2, by = "id_number")
 jvb1554_info <- jvb1554_sites %>% 
   pivot_wider(1:2, names_from = "sample_id", values_from = "site_name") %>% 
   clean_names() %>%
-  pivot_longer(1:11, names_to = "sample_id", values_to = "site_name")
+  pivot_longer(1:12, names_to = "sample_id", values_to = "site_name")
 
 ```
 
@@ -372,26 +372,70 @@ jvb_mifishu14702 <- jvb_mifishu14701 %>%
 ```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
 
 jvb_23s15542 <- jvb_23s15541 %>% 
-  
+  select(esv_id:x0cel3no8) %>% 
+  pivot_longer(6:17, names_to = "sample_id", values_to = "sample_number") %>% 
+  inner_join(jvb1554_info, by = "sample_id") %>% 
+  select(esv_id, sample_id, kpcofgs, site_name, sample_number, number_species,
+         percent_match) %>% 
+  group_by(esv_id, kpcofgs, site_name) %>% 
+  filter(sample_number != 0) %>% 
+  distinct(esv_id, .keep_all = TRUE) %>% 
+   summarise(total_sample_number = sum(sample_number),
+            total_percent_match = sum(percent_match),
+            total_number_species = sum(number_species))
 
-jvb_mifishu15542 <- jvb_mifishu15541
+jvb_mifishu15542 <- jvb_mifishu15541 %>% 
+  select(esv_id:x0cel3no8) %>% 
+  pivot_longer(6:15, names_to = "sample_id", values_to = "sample_number") %>% 
+  inner_join(jvb1554_info, by = "sample_id") %>% 
+  select(esv_id, sample_id, kpcofgs, site_name, sample_number, number_species,
+         percent_match) %>% 
+  group_by(esv_id, kpcofgs, site_name) %>% 
+  filter(sample_number != 0) %>% 
+  distinct(esv_id, .keep_all = TRUE) %>% 
+   summarise(total_sample_number = sum(sample_number),
+            total_percent_match = sum(percent_match),
+            total_number_species = sum(number_species))
 
-jvb_arthcoi15542 <- jvb_arthcoi15541
+jvb_arthcoi15542 <- jvb_arthcoi15541 %>% 
+  select(esv_id:x0cel3no8) %>% 
+  pivot_longer(6:17, names_to = "sample_id", values_to = "sample_number") %>% 
+  inner_join(jvb1554_info, by = "sample_id") %>% 
+  select(esv_id, sample_id, kpcofgs, site_name, sample_number, number_species,
+         percent_match) %>% 
+  group_by(esv_id, kpcofgs, site_name) %>% 
+  filter(sample_number != 0) %>% 
+  distinct(esv_id, .keep_all = TRUE) %>% 
+   summarise(total_sample_number = sum(sample_number),
+            total_percent_match = sum(percent_match),
+            total_number_species = sum(number_species))
 
 ```
 
 ### Merge Datasets
 
 ```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
-# Merge all JVB datasets into one
-jvb <- rbind(jvb_12s2, jvb_16s2, jvb_23s2, jvb_arth_coi2, 
+
+# Merge all JVB datasets from batch 1 into one
+
+jvb1 <- rbind(jvb_12s2, jvb_16s2, jvb_23s2, jvb_arth_coi2, 
              jvb_its2, jvb_18s2, jvb_trnl2, jvb_unicoi2)
+
+```
+
+```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
+
+# Merge all JVB datasets from batch 2 into one
+
+jvb2 <- rbind(jvb_23s15542, jvb_mifishu15542, jvb_arthcoi15542)
 
 ```
 
 ### Create CSV Files for Different Sample Types
 
 ```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
+
+# CSV files for batch 1
 
 owl_pellet <- jvb %>% 
   filter(grepl("owl", sample_type)) %>% 
@@ -419,5 +463,14 @@ pollen <- jvb %>%
 
 edna <- jvb %>% 
   write.csv("output/edna.csv")
+
+```
+
+```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
+
+# CSV files for batch 2
+
+batch_2 <- jvb2 %>% 
+  write.csv("output/batch_2.csv")
 
 ```
