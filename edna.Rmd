@@ -1,7 +1,7 @@
 ---
 title: "EDNA Data"
 author: "Ashley Grinstead"
-date: "05/11/2022"
+date: "06/07/2022"
 output: pdf_document
 ---
 
@@ -29,21 +29,22 @@ edna_info <- read.csv("data/edna_info.csv") %>%
   # Clean names so that all column titles are lowercase and have underscores
   
   clean_names()
+```
 
+```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
 
 # Read in batch JVB1554 data sites
 
 jvb1554_sites <- read.csv("data/JVB1554_sample.csv") %>% 
   clean_names() %>%
   
-  # Take out columns that don't need to be used
+  # Select columns of interest
   
-  select(sample_id, site_name) %>% 
-  
-  # Remove NA values
-  
-  na.omit()
+  select(sample_id, site_name)
 
+```
+
+```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
 
 # Import batch JVB1470 data
 
@@ -73,7 +74,9 @@ jvb_unicoi1470 <- read.csv("data/JVB1470-UniCOI.csv") %>%
 
 jvb_mifishu1470 <- read.csv("data/JVB1470-MiFishU.csv") %>% 
   clean_names()
+```
 
+```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
 
 # Import batch JVB1554 data
 
@@ -90,7 +93,7 @@ jvb_23s1554 <- read.csv("data/JVB1554-23S.csv") %>%
 
 ### Data Organization
 
-```{r echo=TRUE, error=TRUE, message=FALSE, warning=FALSE, tidy=}
+```{r echo=TRUE, error=TRUE, message=FALSE, warning=FALSE, tidy=TRUE}
 
 # Create a new variable so original variable isn't messed with; I added a "1"
 # after the original naming convention indicating the new variable.
@@ -158,7 +161,9 @@ jvb_mifishu14701 <- jvb_mifishu1470 %>%
   rename(percent_match = x_match,
          number_species = x_species) %>% 
   unite("kpcofgs", kingdom:species, sep = ", ")
+```
 
+```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
 jvb_mifishu15541 <- jvb_mifishu1554 %>% 
   rename(percent_match = x_match,
          number_species = x_species) %>% 
@@ -207,7 +212,9 @@ edna_info2 <- edna_info %>%
 # Create third variable to join first two variables together by ID number
 
 edna_info3 <- inner_join(edna_info1, edna_info2, by = "id_number")
+```
 
+```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
 
 # Do the same for batch JVB1554 (this one is by site name, not sample type)
 
@@ -216,6 +223,9 @@ jvb1554_info <- jvb1554_sites %>%
   clean_names() %>%
   pivot_longer(1:11, names_to = "sample_id", values_to = "site_name")
 
+```
+
+```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
 
 # Create new dataframe to again for next data organization wave
 
@@ -357,8 +367,12 @@ jvb_mifishu14702 <- jvb_mifishu14701 %>%
   summarise(total_sample_number = sum(sample_number),
             total_percent_match = sum(percent_match),
             total_number_species = sum(number_species))
+```
 
-jvb_23s15542 <- jvb_23s15541
+```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
+
+jvb_23s15542 <- jvb_23s15541 %>% 
+  
 
 jvb_mifishu15542 <- jvb_mifishu15541
 
@@ -370,7 +384,8 @@ jvb_arthcoi15542 <- jvb_arthcoi15541
 
 ```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
 # Merge all JVB datasets into one
-jvb <- rbind(jvb_12s2, jvb_16s2, jvb_23s2, jvb_arth_coi2, jvb_its2, jvb_18s2, jvb_trnl2, jvb_unicoi2)
+jvb <- rbind(jvb_12s2, jvb_16s2, jvb_23s2, jvb_arth_coi2, 
+             jvb_its2, jvb_18s2, jvb_trnl2, jvb_unicoi2)
 
 ```
 
@@ -380,7 +395,8 @@ jvb <- rbind(jvb_12s2, jvb_16s2, jvb_23s2, jvb_arth_coi2, jvb_its2, jvb_18s2, jv
 
 owl_pellet <- jvb %>% 
   filter(grepl("owl", sample_type)) %>% 
-  select(esv_id, kpcofgs, ucsb_id, total_sample_number, total_percent_match, total_number_species) %>% 
+  select(esv_id, kpcofgs, ucsb_id, total_sample_number, total_percent_match, 
+         total_number_species) %>% 
   write.csv("output/owl_pellet.csv")
 
 aquatic <- jvb %>% 
@@ -397,9 +413,11 @@ dropping <- jvb %>%
 
 pollen <- jvb %>% 
   filter(grepl("Pollen", sample_type)) %>% 
-  select(esv_id, kpcofgs, ucsb_id, total_sample_number, total_percent_match, total_number_species) %>% 
+  select(esv_id, kpcofgs, ucsb_id, total_sample_number, total_percent_match, 
+         total_number_species) %>% 
   write.csv("output/pollen.csv")
 
 edna <- jvb %>% 
   write.csv("output/edna.csv")
+
 ```
