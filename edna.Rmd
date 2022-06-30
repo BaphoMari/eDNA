@@ -1,7 +1,7 @@
 ---
-title: "EDNA Data"
-author: "Ashley Grinstead"
-date: "06/07/2022"
+title: "eDNA Data"
+author: "Ashley Grinstead, Chris Kracha"
+date: "06/30/2022"
 output: pdf_document
 ---
 
@@ -74,9 +74,6 @@ jvb_unicoi1470 <- read.csv("data/JVB1470-UniCOI.csv") %>%
 
 jvb_mifishu1470 <- read.csv("data/JVB1470-MiFishU.csv") %>% 
   clean_names()
-```
-
-```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
 
 # Import batch JVB1554 data
 
@@ -95,14 +92,15 @@ jvb_23s1554 <- read.csv("data/JVB1554-23S.csv") %>%
 
 ```{r echo=TRUE, error=TRUE, message=FALSE, warning=FALSE, tidy=TRUE}
 
-# Create a new variable so original variable isn't messed with; I added a "1"
-# after the original naming convention indicating the new variable.
+# Create a function that cleans data
 
-jvb_12s14701 <- jvb_12s1470 %>% 
+eDNA_clean <- function(raw_df) {
   
-  # Look at the table and select the columns with data in it
+  clean_df <- raw_df %>% 
   
-  select(test_id:s034168) %>% 
+  # Select columns with data other than just zeroes
+  
+  select_if(~ !is.numeric(.) || sum(.) != 0) %>% 
   
   # Rename columns that had symbols (%,#) instead of characters
   
@@ -112,72 +110,42 @@ jvb_12s14701 <- jvb_12s1470 %>%
   # Merge kingdom, phylum, class, order, family, genus, and species columns
   # KPCOFGS = kingdom, phylum, class, order, family, genus, species
   
-  unite("kpcofgs", kingdom:species, sep = ", ")
+  unite("kpcofgs", kingdom:species, sep = ", ") %>%
+  
+  # Remove trailing commas and NAs
+  
+  mutate(kpcofgs = trimws(kpcofgs ,which = "right", whitespace = "[NA]")) %>%
+  mutate(kpcofgs = trimws(kpcofgs ,which = "right", whitespace = "[, ]"))
+  
+  return(clean_df)
+}
 
-jvb_16s14701 <- jvb_16s1470 %>% 
-  select(test_id:s034128) %>% 
-  rename(percent_match = x_match,
-         number_species = x_species) %>% 
-  unite("kpcofgs", kingdom:species, sep = ", ")
+# Create a new variable so original variable isn't messed with; I added a "1"
+# after the original naming convention indicating the new variable.
 
-jvb_23s14701 <- jvb_23s1470 %>% 
-  select(test_id:s034210) %>% 
-  rename(percent_match = x_match,
-         number_species = x_species) %>% 
-  unite("kpcofgs", kingdom:species, sep = ", ")
+jvb_12s14701 <- eDNA_clean(jvb_12s1470)
 
-jvb_arthcoi14701 <- jvb_arthcoi1470 %>% 
-  select(test_id:cvi9jr2k) %>% 
-  rename(percent_match = x_match,
-         number_species = x_species) %>% 
-  unite("kpcofgs", kingdom:species, sep = ", ")
+jvb_16s14701 <- eDNA_clean(jvb_16s1470)
 
-jvb_its14701 <- jvb_its1470 %>% 
-  select(test_id:s034128) %>% 
-  rename(percent_match = x_match,
-         number_species = x_species) %>% 
-  unite("kpcofgs", kingdom:species, sep = ", ")
+jvb_23s14701 <- eDNA_clean(jvb_23s1470)
 
-jvb_18s14701 <- jvb_18s1470 %>% 
-  select(test_id:s034148) %>% 
-  rename(percent_match = x_match,
-         number_species = x_species) %>% 
-  unite("kpcofgs", kingdom:species, sep = ", ")
+jvb_arthcoi14701 <- eDNA_clean(jvb_arthcoi1470) 
 
-jvb_trnl14701 <- jvb_trnl1470 %>% 
-  select(test_id:s034126) %>% 
-  rename(percent_match = x_match,
-         number_species = x_species) %>% 
-  unite("kpcofgs", kingdom:species, sep = ", ")
+jvb_its14701 <- eDNA_clean(jvb_its1470)
 
-jvb_unicoi14701 <- jvb_unicoi1470 %>% 
-  select(test_id:s034168) %>% 
-  rename(percent_match = x_match,
-         number_species = x_species) %>% 
-  unite("kpcofgs", kingdom:species, sep = ", ")
+jvb_18s14701 <- eDNA_clean(jvb_18s1470)
 
-jvb_mifishu14701 <- jvb_mifishu1470 %>% 
-  select(test_id:cvi9jr2k) %>% 
-  rename(percent_match = x_match,
-         number_species = x_species) %>% 
-  unite("kpcofgs", kingdom:species, sep = ", ")
-```
+jvb_trnl14701 <- eDNA_clean(jvb_trnl1470)
 
-```{r, echo = TRUE, error = TRUE, message = FALSE, warning = FALSE, tidy = TRUE}
-jvb_mifishu15541 <- jvb_mifishu1554 %>% 
-  rename(percent_match = x_match,
-         number_species = x_species) %>% 
-  unite("kpcofgs", kingdom:species, sep = ", ")
+jvb_unicoi14701 <- eDNA_clean(jvb_unicoi1470)
 
-jvb_arthcoi15541 <- jvb_arthcoi1554 %>% 
-  rename(percent_match = x_match,
-         number_species = x_species) %>% 
-  unite("kpcofgs", kingdom:species, sep = ", ")
+jvb_mifishu14701 <- eDNA_clean(jvb_mifishu1470)
 
-jvb_23s15541 <- jvb_23s1554 %>% 
-  rename(percent_match = x_match,
-         number_species = x_species) %>% 
-  unite("kpcofgs", kingdom:species, sep = ", ")
+jvb_mifishu15541 <- eDNA_clean(jvb_mifishu1554)
+
+jvb_arthcoi15541 <- eDNA_clean(jvb_arthcoi1554)
+
+jvb_23s15541 <- eDNA_clean(jvb_23s1554) 
 
 ```
 
