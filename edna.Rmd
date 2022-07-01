@@ -94,32 +94,35 @@ jvb_23s1554 <- read.csv("data/JVB1554-23S.csv") %>%
 
 # Create a function that cleans data
 
-eDNA_clean <- function(raw_df) {
+eDNA_clean <- function(raw_df){
   
   clean_df <- raw_df %>% 
   
-  # Select columns with data other than just zeroes
+    # Select columns with data other than just zeroes
   
-  select_if(~ !is.numeric(.) || sum(.) != 0) %>% 
+    select_if(~ !is.numeric(.) || sum(., na.rm=TRUE) != 0) %>%
+    
+    # Change column names with % and #
+    
+    rename(percent_match = x_match,
+           number_species = x_species) %>%
   
-  # Rename columns that had symbols (%,#) instead of characters
+    # Merge kingdom, phylum, class, order, family, genus, and species columns
+    # KPCOFGS = kingdom, phylum, class, order, family, genus, species
   
-  rename(percent_match = x_match,
-         number_species = x_species) %>% 
+    unite("kpcofgs", kingdom:species, sep = ", ") %>%
   
-  # Merge kingdom, phylum, class, order, family, genus, and species columns
-  # KPCOFGS = kingdom, phylum, class, order, family, genus, species
+    # Remove trailing commas and NAs
   
-  unite("kpcofgs", kingdom:species, sep = ", ") %>%
-  
-  # Remove trailing commas and NAs
-  
-  mutate(kpcofgs = trimws(kpcofgs ,which = "right", whitespace = "[NA]")) %>%
-  mutate(kpcofgs = trimws(kpcofgs ,which = "right", whitespace = "[, ]"))
+    mutate(kpcofgs = trimws(kpcofgs ,which = "right", whitespace = "[NA]")) %>%
+    mutate(kpcofgs = trimws(kpcofgs ,which = "right", whitespace = "[, ]")) %>%
+    na.omit()
   
   return(clean_df)
 }
+```
 
+```{r echo=TRUE, error=TRUE, message=FALSE, warning=FALSE, tidy=TRUE}
 # Create a new variable so original variable isn't messed with; I added a "1"
 # after the original naming convention indicating the new variable.
 
