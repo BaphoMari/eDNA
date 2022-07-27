@@ -144,6 +144,8 @@ jvb_unicoi14701 <- eDNA_clean(jvb_unicoi1470)
 
 jvb_mifishu14701 <- eDNA_clean(jvb_mifishu1470)
 
+# 1554
+
 jvb_mifishu15541 <- eDNA_clean(jvb_mifishu1554)
 
 jvb_arthcoi15541 <- eDNA_clean(jvb_arthcoi1554)
@@ -163,7 +165,7 @@ edna_info1 <- edna_info %>%
   # Pivot wider to set ID numbers to the same format as the ID numbers in the
   # JVB datasets
   
-  pivot_wider(1:2, names_from = "dna_vial", values_from = "sample_type") %>% 
+  pivot_wider(names_from = "dna_vial", values_from = "sample_type") %>% 
   clean_names() %>%
   
   # Pivot longer to format into rows instead of columns
@@ -174,11 +176,7 @@ edna_info1 <- edna_info %>%
 # create second variable to match ID numbers to UCSB IDs
 
 edna_info2 <- edna_info %>% 
-  select(dna_vial, ucsb_id) %>% 
-  pivot_wider(names_from = "dna_vial", values_from = "ucsb_id") %>% 
-  clean_names() %>% 
-  pivot_longer(1:26, names_to = "id_number", values_to = "ucsb_id")
-
+  select(dna_vial, ucsb_id)
 
 # Create third variable to join first two variables together by ID number
 
