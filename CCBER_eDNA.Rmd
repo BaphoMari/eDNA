@@ -91,9 +91,10 @@ JVB1703 <- eDNA_clean(folder1703) %>%
 
 ```{r bind eDNA batches}
 
-NCOS_eDNA <- bind_rows(JVB1470, JVB1554, JVB1703) %>%
+NCOS_AqInv_eDNA <- bind_rows(JVB1470, JVB1554, JVB1703) %>%
   distinct(ESVId, site_name, .keep_all = TRUE) %>%
-  filter(percent_match > 95)
+  filter(percent_match > 90,
+         Kingdom != "Bacteria")
   
 ```
 
@@ -102,39 +103,59 @@ NCOS_eDNA <- bind_rows(JVB1470, JVB1554, JVB1703) %>%
 
 taxa <- c(rep("order", 3), rep("family", 3), rep("species", 3))
 site <- rep(c("NWP" , "VP1", "MO1") , 3)
-count <- c(NCOS_eDNA %>% filter(site_name == "NWP") %>% count(Order) %>% nrow(),
-           NCOS_eDNA %>% filter(site_name == "VP1") %>% count(Order) %>% nrow(),
-           NCOS_eDNA %>% filter(site_name == "MO1") %>% count(Order) %>% nrow(),
-           NCOS_eDNA %>% filter(site_name == "NWP") %>% count(Family) %>% nrow(),
-           NCOS_eDNA %>% filter(site_name == "VP1") %>% count(Family) %>% nrow(),
-           NCOS_eDNA %>% filter(site_name == "MO1") %>% count(Family) %>% nrow(),
-           NCOS_eDNA %>% filter(site_name == "NWP") %>% count(Species) %>% nrow(),
-           NCOS_eDNA %>% filter(site_name == "VP1") %>% count(Species) %>% nrow(),
-           NCOS_eDNA %>% filter(site_name == "MO1") %>% count(Species) %>% nrow())
+
+count <- c(NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% count(Order) %>% nrow(),
+           NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% count(Order) %>% nrow(),
+           NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% count(Order) %>% nrow(),
+           NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% count(Family) %>% nrow(),
+           NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% count(Family) %>% nrow(),
+           NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% count(Family) %>% nrow(),
+           NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% count(Species) %>% nrow(),
+           NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% count(Species) %>% nrow(),
+           NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% count(Species) %>% nrow())
+
 taxa_comparison <- data.frame(taxa, site, count)
 
-ggplot(NCOS_eDNA, aes(x = site_name)) + geom_bar(stat = "count") + ggtitle("Unique DNA Barcode Observations by Site")
+ggplot(NCOS_AqInv_eDNA, aes(x = site_name)) + geom_bar(stat = "count") + ggtitle("Unique DNA Barcode Observations by Site")
 
 ggplot(taxa_comparison, aes(x = taxa, y = count, fill = site)) + 
     geom_bar(position="dodge", stat="identity") + ggtitle("Taxa Counts by Site")
 ```
 
-```{r aquatic species tree diagrams}
+```{r aquatic species tree diagrams, fig.height=10, fig.width=18, warning=FALSE}
 
-heatTree <- function(input) {
+heatTree <- function(input, title) {
   input %>% parse_tax_data(class_cols = 5:11) %>%
   filter_taxa(taxon_names != "") %>%
   heat_tree(node_label = taxon_names,
             node_color = n_obs,
             node_size = n_obs,
+            overlap_avoidance = 20,
+            node_label_size_range = c(0.021, 0.026),
+            repel_force = 10,
+            node_legend_title = "Taxon",
+            node_color_axis_label = "# DNA matches",
+            node_color_digits = 1,
+            title = title,
+            title_size = 0.03,
+            aspect_ratio = 1.8,
+            margin_size = c(0.003, 0.003, 0.003, 0.003),
             layout = "da")
 }
 
-NCOS_eDNA %>% heatTree()
-NCOS_eDNA %>% filter(site_name == "NWP") %>% heatTree()
-NCOS_eDNA %>% filter(site_name == "VP1") %>% heatTree()
-NCOS_eDNA %>% filter(site_name == "MO1") %>% heatTree()
-NCOS_eDNA %>% filter(site_name == "NVBR") %>% heatTree()
+NCOS_AqInv_eDNA %>% heatTree(" NCOS Species eDNA")
+
+NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% 
+  heatTree(" Species detected at Northwest Pond")
+
+NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% 
+  heatTree(" Species detected at Vernal Pool 1")
+
+NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% 
+  heatTree(" Species detected at Mouth of Devereux Slough")
+
+NCOS_AqInv_eDNA %>% filter(site_name == "NVBR") %>% 
+  heatTree(" Species detected at Venoco Bridge")
 
 ```
 
