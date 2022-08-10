@@ -101,22 +101,29 @@ NCOS_AqInv_eDNA <- bind_rows(JVB1470, JVB1554, JVB1703) %>%
 # Vizualize data
 ```{r chart of aquatic taxa count}
 
-taxa <- c(rep("order", 3), rep("family", 3), rep("species", 3))
-site <- rep(c("NWP" , "VP1", "MO1") , 3)
+taxa <- c(rep("order", 4), rep("family", 4), rep("species", 4))
+site <- rep(c("NCOS West Pond" , "Vernal Pool 1", "Mouth of Devereux", "Venoco Bridge") , 3)
 
 count <- c(NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% count(Order) %>% nrow(),
            NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% count(Order) %>% nrow(),
            NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% count(Order) %>% nrow(),
+           NCOS_AqInv_eDNA %>% filter(site_name == "NVBR") %>% count(Order) %>% nrow(),
+           
            NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% count(Family) %>% nrow(),
            NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% count(Family) %>% nrow(),
            NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% count(Family) %>% nrow(),
+           NCOS_AqInv_eDNA %>% filter(site_name == "NVBR") %>% count(Family) %>% nrow(),
+           
            NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% count(Species) %>% nrow(),
            NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% count(Species) %>% nrow(),
-           NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% count(Species) %>% nrow())
+           NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% count(Species) %>% nrow(),
+           NCOS_AqInv_eDNA %>% filter(site_name == "NVBR") %>% count(Species) %>% nrow())
+
 
 taxa_comparison <- data.frame(taxa, site, count)
 
-ggplot(NCOS_AqInv_eDNA, aes(x = site_name)) + geom_bar(stat = "count") + ggtitle("Unique DNA Barcode Observations by Site")
+ggplot(NCOS_AqInv_eDNA, aes(x = site_name)) + geom_bar(stat = "count") + ggtitle("Unique DNA Barcode Observations by Site") +
+  geom_col
 
 ggplot(taxa_comparison, aes(x = taxa, y = count, fill = site)) + 
     geom_bar(position="dodge", stat="identity") + ggtitle("Taxa Counts by Site")
@@ -143,10 +150,10 @@ heatTree <- function(input, title) {
             layout = "da")
 }
 
-NCOS_AqInv_eDNA %>% heatTree(" NCOS Species eDNA")
+NCOS_AqInv_eDNA %>% heatTree(" Species found by eDNA in the Devereux Slough")
 
 NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% 
-  heatTree(" Species detected at Northwest Pond")
+  heatTree(" Species detected at NCOS West Pond")
 
 NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% 
   heatTree(" Species detected at Vernal Pool 1")
