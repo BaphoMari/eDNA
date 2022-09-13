@@ -1,6 +1,6 @@
 ---
-title: "CCBER_eDNA"
-author: "Ashley Grinstead, Chris Kracha"
+title: "edna"
+author: "Chris Kracha"
 date: "06/30/2022"
 output: html
 ---
@@ -14,10 +14,11 @@ library(janitor)
 library(here)
 library(tidyverse)
 
-
 ```
 
-# Load in data
+# Aquatic Invertebrates
+
+## Load in data
 ```{r clean batch eDNA}
 
 # Function cleans and combines all eDNA files from a folder
@@ -36,7 +37,9 @@ eDNA_clean <- function(folder) {
            number_species = "# species") %>%
     
     # Combine taxa into one column
-    unite("kpcofgs", Kingdom:Species, sep = ", ", na.rm = TRUE, remove = FALSE) %>%
+    unite("kpcofgs", Kingdom:Species, 
+          sep = ", ", na.rm = TRUE, 
+          remove = FALSE) %>%
     
     select(1:number_species, kpcofgs, everything()) %>%
     
@@ -52,28 +55,45 @@ eDNA_clean <- function(folder) {
 }
 ```
 
-```{r load and join to metadata, message=FALSE, include=FALSE}
+```{r join aquatic eDNA to metadata, message=FALSE, include=FALSE}
+
+# Metadata file (should be updated with each batch)
+# NOTE: Original file edited due to errors in copying 1s/Is and Os/0s
+AQsampleIDs <- read_csv(here("data/sample_ids.csv")) %>%
+  clean_names()
+
 # 1470 eDNA data with site names
 folder1470 <- here::here("data/JVB1470")
 
 JVB1470 <- eDNA_clean(folder1470) %>%
-  mutate(site_name = case_when(sample_id == "S034210" ~ "MO1",
-                               sample_id == "S034179" ~ "NVBR",
-                               sample_id == "XOCTKIVA" ~ "NPB")) %>%
-  select(1:sample_count, site_name) %>%
-  filter(site_name != "")
+  left_join(AQsampleIDs, by = c("sample_id" = "barcode")) %>%
   
-# 1554 eDNA data with site names
+  # Alcohol sample info added manually - dates are approximate
+  mutate(site = case_when(sample_id == "S034210" ~ "MO1",
+                          sample_id == "S034179" ~ "NVBR",
+                          TRUE ~ site),
+         date = case_when(sample_id == "S034210" ~ mdy("11/16/2021"),
+                          sample_id == "S034179" ~ mdy("11/16/2021"),
+                          TRUE ~ mdy(date)),
+         ncos_or_copr = 
+                 case_when(sample_id == "S034210" ~ "COPR",
+                           sample_id == "S034179" ~ "NCOS",
+                           TRUE ~ ncos_or_copr),
+         full_site_name = 
+                 case_when(sample_id == "S034210" ~ "Mouth",
+                           sample_id == "S034179" ~ "Venoco Bridge",
+                           TRUE ~ full_site_name)) %>%
+  filter(site != "", kpcofgs != "")
+  
+# 1554 eDNA
 folder1554 <- here::here("data/JVB1554")
 
 info1554 <- read.csv(here::here("data/info_1554.csv")) %>% clean_names()
 
 JVB1554 <- eDNA_clean(folder1554) %>%
-  left_join(info1554, by = "sample_id") %>%
-  mutate(site_name = case_when(site_name == "Coprvp1" ~ "VP1",
-                               site_name == "NWP (NCOS West Pond)" ~ "NWP")) %>%
-  select(1:sample_count, site_name) %>%
-  filter(site_name != "")
+  left_join(AQsampleIDs, by = c("sample_id" = "barcode")) %>%
+  mutate(date = mdy(date)) %>%
+  filter(site != "", kpcofgs != "")
 
 # 1703 eDNA data joined to metadata
 folder1703 <- here::here("data/JVB1703")
@@ -82,38 +102,42 @@ info1703 <- read_csv(here::here("data/info_1703.csv")) %>% clean_names()
 
 JVB1703 <- eDNA_clean(folder1703) %>% 
   mutate(sample_id = gsub("\\.1", "", sample_id)) %>%
-  left_join(info1703, by = "sample_id") %>%
-  replace_na(list(site_name = "PIER")) %>%
-  select(1:sample_count, site_name) %>%
-  filter(site_name != "")
+  left_join(AQsampleIDs, by = c("sample_id" = "barcode")) %>%
+  mutate(date = mdy(date)) %>%
+  filter(site != "", kpcofgs != "")
 
 ```
 
 ```{r bind eDNA batches}
 
 NCOS_AqInv_eDNA <- bind_rows(JVB1470, JVB1554, JVB1703) %>%
-  distinct(ESVId, site_name, .keep_all = TRUE) %>%
-  filter(percent_match > 90,
-         Kingdom != "Bacteria")
+  distinct(ESVId, site, .keep_all = TRUE) %>%
+  filter(Kingdom != "Bacteria",
+    
+    # This cutoff is arbitrary and can be altered
+    percent_match > 90)
   
 ```
 
-# Vizualize data
-```{r chart of aquatic taxa count}
+## Vizualize data
+```{r manual chart of aquatic taxa count}
 
 taxa <- c(rep("order", 4), rep("family", 4), rep("species", 4))
 site <- rep(c("NCOS West Pond" , "Vernal Pool 1", "Mouth of Devereux", "Venoco Bridge") , 3)
 
+# Order columns
 count <- c(NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% count(Order) %>% nrow(),
            NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% count(Order) %>% nrow(),
            NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% count(Order) %>% nrow(),
            NCOS_AqInv_eDNA %>% filter(site_name == "NVBR") %>% count(Order) %>% nrow(),
-           
+
+# Family columns          
            NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% count(Family) %>% nrow(),
            NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% count(Family) %>% nrow(),
            NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% count(Family) %>% nrow(),
            NCOS_AqInv_eDNA %>% filter(site_name == "NVBR") %>% count(Family) %>% nrow(),
-           
+
+# Species Columns
            NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% count(Species) %>% nrow(),
            NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% count(Species) %>% nrow(),
            NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% count(Species) %>% nrow(),
@@ -127,6 +151,35 @@ ggplot(NCOS_AqInv_eDNA, aes(x = site_name)) + geom_bar(stat = "count") + ggtitle
 
 ggplot(taxa_comparison, aes(x = taxa, y = count, fill = site)) + 
     geom_bar(position="dodge", stat="identity") + ggtitle("Taxa Counts by Site")
+```
+
+```{r seasonal eDNA replication counts}
+NCOS_AqInv_summary <- NCOS_AqInv_eDNA %>%
+  group_by(date, site) %>%
+  summarize(sum_sequence_replications = sum(sample_count),
+            identified_taxa_count = n())
+
+ggplot(NCOS_AqInv_summary) +
+  geom_line(aes(x = date, 
+                y = identified_taxa_count, 
+                color = site)) +
+  ylab("identified taxa")
+  ggtitle("Count of Identified Taxa")
+
+ggplot(NCOS_AqInv_summary) +
+  geom_line(aes(x = date, 
+                y = sum_sequence_replications, 
+                color = site)) +
+  ylab("DNA barcode replications") +
+  ggtitle("Sum of DNA Barcode Replica Count")
+
+NCOS_AqInv_eDNA %>%
+  ggplot() +
+    geom_line(aes(x = date, 
+                  y = sample_count, 
+                  color = Class)) +
+    ylab("DNA barcode replications") +
+    ggtitle("DNA barcode replications")
 ```
 
 ```{r aquatic species tree diagrams, fig.height=10, fig.width=18, warning=FALSE}
@@ -165,5 +218,45 @@ NCOS_AqInv_eDNA %>% filter(site_name == "NVBR") %>%
   heatTree(" Species detected at Venoco Bridge")
 
 ```
+
+```{r nmds}
+library(vegan)
+library(ggrepel)
+
+presence_AqInv_eDNA <- NCOS_AqInv_eDNA %>%
+  mutate(presence = 1) %>%
+  pivot_wider(id_cols = site, 
+              names_from  = kpcofgs, 
+              values_from = presence,
+              values_fn = mean) %>%
+  replace(is.na(.), 0) %>%
+  filter(!row_number() %in% 14) # Remove last row with no presence
+
+NMDS_AqInv_eDNA <- presence_AqInv_eDNA %>%
+  select(2:50) %>%
+  metaMDS(dist = "bray")
+
+NCOScopr <- AQsampleIDs %>% 
+  select(site, ncos_or_copr) %>%
+  unique()
+
+NMDS_AqInv_eDNA.scores <- as.data.frame(scores(NMDS_AqInv_eDNA)$sites) %>%
+  mutate(site = presence_AqInv_eDNA$site) %>%
+  left_join(NCOScopr, by = "site")
+
+ggplot(NMDS_AqInv_eDNA.scores, aes(NMDS1, NMDS2, label = site, color = ncos_or_copr)) +
+  geom_point() + geom_text_repel()
+
+
+```
+
+
+# Soils
+
+## Load in data
+```{r}
+
+```
+
 
 
