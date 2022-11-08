@@ -12,11 +12,11 @@ library(metacoder)
 library(plyr)
 library(janitor)
 library(here)
+library(lubridate)
 library(tidyverse)
-
 ```
 
-# Aquatic Invertebrates
+# Aquatic Invertebrates Pre-Summer 2022
 
 ## Load in data
 ```{r clean batch eDNA}
@@ -251,10 +251,37 @@ ggplot(NMDS_AqInv_eDNA.scores, aes(NMDS1, NMDS2, label = site, color = ncos_or_c
 ```
 
 
-# Soils
 
-## Load in data
+# Aquatic Invertebrates Fall 2022
+
 ```{r}
+infoNov22 <- read_csv("data/info_nov22.csv") %>% select(SampleId, SiteName)
+infoNov22
+
+NCOS_AqInv_eDNA_Nov22 <- eDNA_clean("data/November 2022 EDNA") %>%
+  mutate(sample_id = substring(sample_id, 1, nchar(sample_id)-2)) %>%
+  left_join(infoNov22, by = c("sample_id" = "SampleId"))
+
+NCOS_AqInv_eDNA_Nov22 %>% heatTree(" Species found by eDNA in the Devereux Slough")
+
+NCOS_AqInv_eDNA_Nov22 %>% filter(SiteName == "NWP") %>% 
+  heatTree(" Species detected at NCOS West Pond")
+
+NCOS_AqInv_eDNA_Nov22 %>% filter(SiteName == "MO1") %>% 
+  heatTree(" Species detected at Mouth of Devereux Slough")
+
+NCOS_AqInv_eDNA_Nov22 %>% filter(SiteName == "NVBR") %>% 
+  heatTree(" Species detected at Venoco Bridge")
+
+NCOS_AqInv_eDNA_Nov22 %>% filter(SiteName == "NEC") %>% 
+  heatTree(" Species detected at Northeast Channel")
+
+NCOS_AqInv_eDNA_Nov22 %>% filter(SiteName == "NPB") %>% 
+  heatTree(" Species detected at Phelps Bridge")
+
+NCOS_AqInv_eDNA_Nov22 %>% filter(SiteName == "PIER") %>% 
+  heatTree(" Species detected at COPR Pier")
+
 
 ```
 
