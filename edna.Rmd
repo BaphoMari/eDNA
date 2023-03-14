@@ -6,10 +6,10 @@ output: html
 ---
 
 ```{r setup}
-
 library(taxa)
+library(taxize)
+library(rentrez)
 library(metacoder)
-library(plyr)
 library(janitor)
 library(here)
 library(lubridate)
@@ -21,18 +21,20 @@ library(tidyverse)
 ## Load in data
 ```{r clean batch eDNA}
 
+# Alcohol sample info added manually - dates are approximate
+
 # Function cleans and combines all eDNA files from a folder
 eDNA_clean <- function(folder) {
   
   cleaned <- folder %>%
     
     # Create list of all files in target folder
-    list.files(full.names = TRUE)  %>%
+    list.files(., full.names = TRUE)  %>%
     
     # Read CSV files and bind rows together
     ldply(read_csv) %>% 
     
-    # Remove special characters from column names
+    # Clean names
     dplyr::rename(percent_match = "% match",
            number_species = "# species") %>%
     
@@ -55,102 +57,126 @@ eDNA_clean <- function(folder) {
 }
 ```
 
-```{r join aquatic eDNA to metadata, message=FALSE, include=FALSE}
-
+## Fix metadata per upload
+```{r message=FALSE}
 # Metadata file (should be updated with each batch)
 # NOTE: Original file edited due to errors in copying 1s/Is and Os/0s
 AQsampleIDs <- read_csv(here("data/sample_ids.csv")) %>%
   clean_names()
 
-# 1470 eDNA data with site names
-folder1470 <- here::here("data/JVB1470")
+folder1470 <- here("data/JVB1470")
+JVB1470 <- eDNA_clean(folder1470)
 
-JVB1470 <- eDNA_clean(folder1470) %>%
-  left_join(AQsampleIDs, by = c("sample_id" = "barcode")) %>%
-  
-  # Alcohol sample info added manually - dates are approximate
-  mutate(site = case_when(sample_id == "S034210" ~ "MO1",
-                          sample_id == "S034179" ~ "NVBR",
-                          TRUE ~ site),
-         date = case_when(sample_id == "S034210" ~ mdy("11/16/2021"),
-                          sample_id == "S034179" ~ mdy("11/16/2021"),
-                          TRUE ~ mdy(date)),
-         ncos_or_copr = 
-                 case_when(sample_id == "S034210" ~ "COPR",
-                           sample_id == "S034179" ~ "NCOS",
-                           TRUE ~ ncos_or_copr),
-         full_site_name = 
-                 case_when(sample_id == "S034210" ~ "Mouth",
-                           sample_id == "S034179" ~ "Venoco Bridge",
-                           TRUE ~ full_site_name)) %>%
-  filter(site != "", kpcofgs != "")
-  
-# 1554 eDNA
-folder1554 <- here::here("data/JVB1554")
+folder1554 <- here("data/JVB1554")
+JVB1554 <- eDNA_clean(folder1554)
 
-info1554 <- read.csv(here::here("data/info_1554.csv")) %>% clean_names()
-
-JVB1554 <- eDNA_clean(folder1554) %>%
-  left_join(AQsampleIDs, by = c("sample_id" = "barcode")) %>%
-  mutate(date = mdy(date)) %>%
-  filter(site != "", kpcofgs != "")
-
-# 1703 eDNA data joined to metadata
-folder1703 <- here::here("data/JVB1703")
-
-info1703 <- read_csv(here::here("data/info_1703.csv")) %>% clean_names()
-
+folder1703 <- here("data/JVB1703")
 JVB1703 <- eDNA_clean(folder1703) %>% 
-  mutate(sample_id = gsub("\\.1", "", sample_id)) %>%
-  left_join(AQsampleIDs, by = c("sample_id" = "barcode")) %>%
-  mutate(date = mdy(date)) %>%
-  filter(site != "", kpcofgs != "")
+  mutate(sample_id = gsub("\\.1", "", sample_id))
 
+folder1703Nov <- here("data/JVB1703-Nov22")
+JVBNov22 <- eDNA_clean(folder1703Nov) %>%
+  mutate(sample_id = substring(sample_id, 1, nchar(sample_id)-2))
+
+folder2116 <- here("data/JVB2116")
+JVB2116 <- eDNA_clean(folder2116) %>%
+  mutate(sample_id = substring(sample_id, 1, nchar(sample_id)-2))
 ```
 
 ```{r bind eDNA batches}
-
-NCOS_AqInv_eDNA <- bind_rows(JVB1470, JVB1554, JVB1703) %>%
+NCOS_eDNA <- bind_rows(JVB1470, JVB1554, JVB1703, JVBNov22, JVB2116) %>%
+  filter(percent_match > 80) %>% # This cutoff is arbitrary and can be altered
+  left_join(AQsampleIDs, by = c("sample_id" = "barcode")) %>%
   distinct(ESVId, site, .keep_all = TRUE) %>%
-  filter(Kingdom != "Bacteria",
-    
-    # This cutoff is arbitrary and can be altered
-    percent_match > 90)
-  
+  mutate(date = mdy(date)) %>%
+  filter(kpcofgs != "")
+
+NCOS_AqInv_eDNA <- bind_rows(JVB1470, JVB1554, JVB1703, JVBNov22, JVB2116) %>%
+  left_join(AQsampleIDs, by = c("sample_id" = "barcode")) %>%
+  filter(!(site %in% c("bird dropping", "owl pellet", 
+                       "pollen", "soil amendment"))) %>%
+  filter(percent_match > 80) %>% # This cutoff is arbitrary and can be altered
+  distinct(ESVId, site, .keep_all = TRUE) %>%
+  mutate(date = mdy(date)) %>%
+  filter(kpcofgs != "")
+```
+
+## make species tables
+```{r}
+set_entrez_key('b368c15b5cae247eccf0efb48e9cdb260f09')
+
+sci2comm_concat <- function(x){
+  temp <- sci2comm(x, db = "ncbi")
+  if(length(temp) == 0) NA else paste0(temp[[1]], collapse = ", ")
+}
+
+fish <- NCOS_AqInv_eDNA %>% filter(TestId == "MiFishU") %>%
+  group_by(site, kpcofgs) %>% 
+  summarize(samples_sent = n(),
+            matches = sum(sample_count),
+            percent_match = mean(percent_match),
+            common_name = sci2comm_concat(kpcofgs)) %>%
+  write_csv("output/fish.csv")
+
+inverts <- NCOS_AqInv_eDNA %>% filter(TestId == "ArthCOI") %>% 
+  group_by(site, kpcofgs) %>% 
+  summarize(samples_sent = n(),
+            matches = sum(sample_count),
+            percent_match = mean(percent_match),
+            common_name = sci2comm_concat(kpcofgs)) %>%
+  write_csv("output/inverts.csv")
+
+microbes <- NCOS_AqInv_eDNA %>% filter(TestId == "23") %>% 
+  group_by(site, kpcofgs) %>% 
+  summarize(samples_sent = n(),
+            matches = sum(sample_count),
+            percent_match = mean(percent_match),
+            common_name = sci2comm_concat(kpcofgs)) %>%
+  write_csv("output/microbes.csv")
+
 ```
 
 ## Vizualize data
+```{r automatic chart of taxa count}
+site_taxa_count <- NCOS_AqInv_eDNA %>% distinct(site, ESVId, .keep_all = T) %>% 
+  mutate(site = factor(site, levels = c("MO1", "PIER", "CUL1", "NVBR", "NMC", 
+                                        "NEC", "NPB", "NWP", "NDC", "NPB1", "NPB2", 
+                                        "VP1", "NVP2", "NVP4"))) %>%
+  group_by(site, TestId) %>%
+  summarize(taxa_count = n()) %>% write_csv("output/site_taxa_count.csv")
+
+ggplot(site_taxa_count) + geom_bar(aes(x = site, y = taxa_count, fill = TestId), stat = "identity") +
+  ggtitle("eDNA Identified Taxa by Site") + ylab("taxa count") + scale_fill_discrete(name = "Primer")
+```
+
 ```{r manual chart of aquatic taxa count}
 
-taxa <- c(rep("order", 4), rep("family", 4), rep("species", 4))
-site <- rep(c("NCOS West Pond" , "Vernal Pool 1", "Mouth of Devereux", "Venoco Bridge") , 3)
+taxa_comparison <- NCOS_eDNA %>% group_by(site) %>% 
+  summarise(Phylum = n_distinct(Phylum), Class = n_distinct(Class), 
+            Order = n_distinct(Order), Family = n_distinct(Family), 
+            Species = n_distinct(Species)) %>%
+  pivot_longer(2:6, names_to = "taxa", values_to = "count") %>%
+  mutate(site = factor(site, levels = c("MO1", "PIER", "CUL1", "NVBR", "NMC", "NEC", "NPB", "NWP", "NDC", "NPB1", "NPB2", "VP1", "NVP2", "NVP4", "bird dropping", "owl pellet", "pollen", "soil amendment")))
 
-# Order columns
-count <- c(NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% count(Order) %>% nrow(),
-           NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% count(Order) %>% nrow(),
-           NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% count(Order) %>% nrow(),
-           NCOS_AqInv_eDNA %>% filter(site_name == "NVBR") %>% count(Order) %>% nrow(),
+ggplot(NCOS_AqInv_eDNA, aes(x = site)) + geom_bar(stat = "count") + ggtitle("Unique DNA Barcode Observations by Site")
 
-# Family columns          
-           NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% count(Family) %>% nrow(),
-           NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% count(Family) %>% nrow(),
-           NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% count(Family) %>% nrow(),
-           NCOS_AqInv_eDNA %>% filter(site_name == "NVBR") %>% count(Family) %>% nrow(),
+ggplot(NCOS_AqInv_eDNA, aes(x = ncos_or_copr)) + geom_bar(stat = "count") + ggtitle("Unique DNA Barcode Observations by Reserve")
 
-# Species Columns
-           NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% count(Species) %>% nrow(),
-           NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% count(Species) %>% nrow(),
-           NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% count(Species) %>% nrow(),
-           NCOS_AqInv_eDNA %>% filter(site_name == "NVBR") %>% count(Species) %>% nrow())
+taxaColors <- c("#6B4026", "#6B4026", "#B64E38", "#1F1F1F")
 
+taxa_comparison %>% ggplot(aes(x = taxa, y = count, fill = site)) + 
+  geom_bar(stat = "identity") +
+  ggtitle("Taxa Counts by Site and Source") +
+  scale_fill_manual(values = c(scales::hue_pal()(14), taxaColors))
 
-taxa_comparison <- data.frame(taxa, site, count)
+taxa_comparison %>% filter(!(site %in% c("bird dropping", "owl pellet", 
+                                         "pollen", "soil amendment"))) %>%
+  ggplot(aes(x = taxa, y = count, fill = site)) + 
+  geom_bar(stat = "identity") +
+  ggtitle("Taxa Counts by Aquatic Site")
 
-ggplot(NCOS_AqInv_eDNA, aes(x = site_name)) + geom_bar(stat = "count") + ggtitle("Unique DNA Barcode Observations by Site") +
-  geom_col
+NCOS_AqInv_eDNA %>% filter(site %in% c("VP1", "NVP2", "NVP4")) %>% write.csv("C:/Users/Admin/Downloads/vernal_pool_read_data.csv")
 
-ggplot(taxa_comparison, aes(x = taxa, y = count, fill = site)) + 
-    geom_bar(position="dodge", stat="identity") + ggtitle("Taxa Counts by Site")
 ```
 
 ```{r seasonal eDNA replication counts}
@@ -177,7 +203,7 @@ NCOS_AqInv_eDNA %>%
   ggplot() +
     geom_line(aes(x = date, 
                   y = sample_count, 
-                  color = Class)) +
+                  color = Phylum)) +
     ylab("DNA barcode replications") +
     ggtitle("DNA barcode replications")
 ```
@@ -203,20 +229,39 @@ heatTree <- function(input, title) {
             layout = "da")
 }
 
-NCOS_AqInv_eDNA %>% heatTree(" Species found by eDNA in the Devereux Slough")
+# All samples
 
-NCOS_AqInv_eDNA %>% filter(site_name == "NWP") %>% 
-  heatTree(" Species detected at NCOS West Pond")
+NCOS_AqInv_eDNA %>% heatTree(" Species found by eDNA in the Devereux Slough, All Dates")
 
-NCOS_AqInv_eDNA %>% filter(site_name == "VP1") %>% 
-  heatTree(" Species detected at Vernal Pool 1")
+NCOS_AqInv_eDNA %>% filter(site == "NWP") %>% 
+  heatTree(" Species detected at NCOS West Pond, All Dates")
 
-NCOS_AqInv_eDNA %>% filter(site_name == "MO1") %>% 
-  heatTree(" Species detected at Mouth of Devereux Slough")
+NCOS_AqInv_eDNA %>% filter(site == "VP1") %>% 
+  heatTree(" Species detected at Vernal Pool 1, All Dates")
 
-NCOS_AqInv_eDNA %>% filter(site_name == "NVBR") %>% 
-  heatTree(" Species detected at Venoco Bridge")
+NCOS_AqInv_eDNA %>% filter(site == "MO1") %>% 
+  heatTree(" Species detected at Mouth of Devereux Slough, All Dates")
 
+NCOS_AqInv_eDNA %>% filter(site == "NVBR") %>% 
+  heatTree(" Species detected at Venoco Bridge, All Dates")
+
+NCOS_AqInv_eDNA %>% filter(site == "NPB") %>% 
+  heatTree(" Species detected at North Phelps Bridge, All Dates")
+
+NCOS_AqInv_eDNA %>% filter(site == "NPB1") %>% 
+  heatTree(" Species detected at North Phelps Bridge 1, All Dates")
+
+NCOS_AqInv_eDNA %>% filter(site == "NPB2") %>% 
+  heatTree(" Species detected at North Phelps Bridge 2, All Dates")
+
+NCOS_AqInv_eDNA %>% filter(site == "PIER") %>% 
+  heatTree(" Species detected at COPR Pier, All Dates")
+
+NCOS_AqInv_eDNA %>% filter(site == "NEC") %>% 
+  heatTree(" Species detected at Northeast Channel, All Dates")
+
+NCOS_AqInv_eDNA %>% filter(site == "CUL1") %>% 
+  heatTree(" Species detected at Culvert, All Dates")
 ```
 
 ```{r nmds}
@@ -229,11 +274,10 @@ presence_AqInv_eDNA <- NCOS_AqInv_eDNA %>%
               names_from  = kpcofgs, 
               values_from = presence,
               values_fn = mean) %>%
-  replace(is.na(.), 0) %>%
-  filter(!row_number() %in% 14) # Remove last row with no presence
+  replace(is.na(.), 0)
 
 NMDS_AqInv_eDNA <- presence_AqInv_eDNA %>%
-  select(2:50) %>%
+  select(-1) %>%
   metaMDS(dist = "bray")
 
 NCOScopr <- AQsampleIDs %>% 
@@ -247,43 +291,11 @@ NMDS_AqInv_eDNA.scores <- as.data.frame(scores(NMDS_AqInv_eDNA)$sites) %>%
 ggplot(NMDS_AqInv_eDNA.scores, aes(NMDS1, NMDS2, label = site, color = ncos_or_copr)) +
   geom_point() + geom_text_repel()
 
-
 ```
 
 
 
-# Aquatic Invertebrates Fall 2022
 
-```{r}
-infoNov22 <- read_csv("data/info_nov22.csv") %>% select(SampleId, SiteName)
-infoNov22
-
-NCOS_AqInv_eDNA_Nov22 <- eDNA_clean("data/November 2022 EDNA") %>%
-  mutate(sample_id = substring(sample_id, 1, nchar(sample_id)-2)) %>%
-  left_join(infoNov22, by = c("sample_id" = "SampleId"))
-
-NCOS_AqInv_eDNA_Nov22 %>% heatTree(" Species found by eDNA in the Devereux Slough")
-
-NCOS_AqInv_eDNA_Nov22 %>% filter(SiteName == "NWP") %>% 
-  heatTree(" Species detected at NCOS West Pond")
-
-NCOS_AqInv_eDNA_Nov22 %>% filter(SiteName == "MO1") %>% 
-  heatTree(" Species detected at Mouth of Devereux Slough")
-
-NCOS_AqInv_eDNA_Nov22 %>% filter(SiteName == "NVBR") %>% 
-  heatTree(" Species detected at Venoco Bridge")
-
-NCOS_AqInv_eDNA_Nov22 %>% filter(SiteName == "NEC") %>% 
-  heatTree(" Species detected at Northeast Channel")
-
-NCOS_AqInv_eDNA_Nov22 %>% filter(SiteName == "NPB") %>% 
-  heatTree(" Species detected at Phelps Bridge")
-
-NCOS_AqInv_eDNA_Nov22 %>% filter(SiteName == "PIER") %>% 
-  heatTree(" Species detected at COPR Pier")
-
-
-```
 
 
 
